@@ -1,0 +1,10 @@
+Las herramientas que vas a necesitar:
+1. Spotify Web API (vía spotipy): Para conectarte a Spotify de forma oficial, leer tus playlists y obtener los metadatos exactos (año de lanzamiento, artistas implicados, nombre del álbum, carátula).
+
+2. yt-dlp: Es una herramienta de línea de comandos (que se puede usar dentro de Python) para descargar el audio de YouTube con la máxima calidad posible.
+
+3. mutagen: La librería de Python que vas a usar para "inyectar" los metadatos (año, featurings, portada) dentro del archivo MP3 o M4A final.
+
+4. FFmpeg: Un software externo que tu script necesitará para convertir el audio descargado a MP3 de alta calidad (320 kbps).
+
+
