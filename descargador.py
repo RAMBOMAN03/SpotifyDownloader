@@ -3,70 +3,111 @@ from bs4 import BeautifulSoup
 import yt_dlp
 import os
 
-def descargar_cancion_spotify(url_spotify):
+# ==========================================
+# MÓDULO 1: EXTRACCIÓN DE METADATOS (SPOTIFY)
+# ==========================================
+
+def obtener_metadatos_spotify(url_spotify):
+    """
+    Hace scraping de la URL pública de Spotify y extrae los metadatos limpios.
+    Devuelve un diccionario con la información o None si falla.
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+    }
+    
     try:
-        # 1. SCRAPING DE METADATOS
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-        }
         respuesta = requests.get(url_spotify, headers=headers)
         if respuesta.status_code != 200:
-            print("No se pudo acceder a Spotify.")
-            return
+            print(f"❌ Error al acceder a Spotify (Código: {respuesta.status_code})")
+            return None
         
         soup = BeautifulSoup(respuesta.text, 'html.parser')
+        
+        # Extraemos etiquetas crudas de los meta-tags
         titulo = soup.find("meta", property="og:title")["content"]
         descripcion = soup.find("meta", property="og:description")["content"]
         url_portada = soup.find("meta", property="og:image")["content"]
         
-        # Procesamos la descripción (Ejemplo: "YOVNGCHIMI, JC Reyes · MVLAN · Song · 2026")
+        # Parseamos la descripción (Ej: "YOVNGCHIMI, JC Reyes · MVLAN · Song · 2026")
         partes = [p.strip() for p in descripcion.split("·")]
-        artistas = partes[0]      # "YOVNGCHIMI, JC Reyes"
-        album = partes[1]         # "MVLAN"
-        anio = partes[-1]         # "2026"
+        artistas = partes[0]
+        album = partes[1]
+        anio = partes[-1]
         
-        print("\n=======================================")
-        print(f"🎵 Procesando: {titulo} - {artistas}")
-        print("=======================================")
-        
-        # 2. CONFIGURAR LA BÚSQUEDA Y DESCARGA CON YT-DLP
-        # Creamos el término de búsqueda perfecto para YouTube
-        termino_busqueda = f"ytsearch1:{artistas} - {titulo} audio"
-        
-        opciones_ytdl = {
-            # Buscamos el mejor audio disponible
-            'format': 'bestaudio/best',
-            # Destino y nombre del archivo temporal (lo guardamos con el título de la canción)
-            'outtmpl': f'{titulo}.%(ext)s',
-            # Le decimos a FFmpeg que lo convierta a MP3 con la máxima calidad (320kbps)
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '320',
-            }],
-            # Evitamos que llene la pantalla con logos de descarga molestos
-            'quiet': False, 
-        }
-        
-        print(f"🔍 Buscando '{artistas} - {titulo}' en YouTube...")
-        with yt_dlp.YoutubeDL(opciones_ytdl) as ydl:
-            ydl.download([termino_busqueda])
-            
-        print(f"\n✅ ¡Descarga completada con éxito! Archivo: '{titulo}.mp3'")
-        
-        # Devolvemos los metadatos para el Hito 3 (Inyectar etiquetas)
         return {
-            "archivo": f"{titulo}.mp3",
             "titulo": titulo,
             "artistas": artistas,
             "album": album,
             "anio": anio,
             "url_portada": url_portada
         }
-        
     except Exception as e:
-        print(f"❌ Error en el proceso: {e}")
+        print(f"❌ Error parseando metadatos de Spotify: {e}")
+        return None
 
-# --- PRUEBA DEL HITO 2 ---
-url_de_prueba = "https://open.spotify.com/intl-es/track/74t17BRV4el0mU0Tb8XY1k?si=aed609bf187241d6"
-datos_cancion = descargar_cancion_spotify(url_de_prueba)
+
+# ==========================================
+# MÓDULO 2: DESCARGA DE AUDIO (YOUTUBE)
+# ==========================================
+
+def descargar_audio_desde_youtube(artistas, titulo):
+    """
+    Busca la canción en YouTube y descarga el audio convertido a MP3 a 320kbps.
+    Devuelve el nombre del archivo generado si tiene éxito.
+    """
+    termino_busqueda = f"ytsearch1:{artistas} - {titulo} audio"
+    nombre_archivo_salida = f"{titulo}.mp3"
+    
+    opciones_ytdl = {
+        'format': 'bestaudio/best',
+        'outtmpl': f'{titulo}.%(ext)s',  # Guarda temporalmente con la extensión nativa
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '320',
+        }],
+        'quiet': False, # Muestra el progreso de la descarga en consola
+    }
+    
+    try:
+        print(f"🔍 Buscando en YouTube: '{artistas} - {titulo}'...")
+        with yt_dlp.YoutubeDL(opciones_ytdl) as ydl:
+            ydl.download([termino_busqueda])
+        return nombre_archivo_salida
+    except Exception as e:
+        print(f"❌ Error al descargar desde YouTube: {e}")
+        return None
+
+
+# ==========================================
+# FLUIDO PRINCIPAL (ORQUESTADOR / MAIN)
+# ==========================================
+
+def main():
+    print("=== INICIANDO SPOTIFY DOWNLOADER LOCAL ===")
+    
+    url_objetivo = "https://open.spotify.com/intl-es/track/74t17BRV4el0mU0Tb8XY1k?si=aed609bf187241d6"
+    
+    # Paso 1: Obtener la información de la canción
+    metadatos = obtener_metadatos_spotify(url_objetivo)
+    
+    if not metadatos:
+        print("Abortando: No se pudieron obtener los metadatos.")
+        return
+        
+    print(f"\n🎵 Canción: {metadatos['titulo']}")
+    print(f"🎤 Artistas: {metadatos['artistas']}")
+    print(f"📅 Año: {metadatos['anio']}\n")
+    
+    # Paso 2: Descargar el audio basándonos en esos metadatos
+    archivo_mp3 = descargar_audio_desde_youtube(metadatos['artistas'], metadatos['titulo'])
+    
+    if archivo_mp3:
+        print(f"\n🚀 Proceso completado. Archivo listo: {archivo_mp3}")
+        # Aquí es donde en el futuro llamaremos al Hito 3: inyectar_metadatos(archivo_mp3, metadatos)
+    else:
+        print("\n❌ El proceso falló en la etapa de descarga.")
+
+if __name__ == "__main__":
+    main()
