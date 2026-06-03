@@ -2,6 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 import yt_dlp
 import os
+from mutagen.easyid3 import EasyID3
+from mutagen.id3 import ID3, APIC
+import requests
 
 # ==========================================
 # MÓDULO 1: EXTRACCIÓN DE METADATOS (SPOTIFY)
@@ -84,10 +87,63 @@ def descargar_audio_desde_youtube(artistas, titulo):
 # FLUIDO PRINCIPAL (ORQUESTADOR / MAIN)
 # ==========================================
 
+def inyectar_metadatos_mp3(ruta_mp3, metadatos):
+    """
+    Descarga la carátula e inyecta las etiquetas ID3 (Título, Artista, Álbum, Año y Portada)
+    dentro del archivo MP3.
+    """
+    print(f"🏷️  Inyectando metadatos en '{ruta_mp3}'...")
+    
+    try:
+        # 1. Guardar metadatos de texto básicos (EasyID3 hace que sea muy sencillo)
+        # Si el archivo no tiene cabecera ID3 básica, EasyID3 la crea automáticamente
+        try:
+            audio_texto = EasyID3(ruta_mp3)
+        except Exception:
+            # Si da error por falta de tags, añadimos una estructura básica limpia
+            from mutagen.id3 import ID3NoHeaderError
+            audio_texto = EasyID3()
+            audio_texto.save(ruta_mp3)
+            audio_texto = EasyID3(ruta_mp3)
+
+        audio_texto['title'] = metadatos['titulo']
+        audio_texto['artist'] = metadatos['artistas']
+        audio_texto['album'] = metadatos['album']
+        audio_texto['date'] = metadatos['anio']
+        audio_texto.save()
+
+        # 2. Guardar la Carátula (Requiere el módulo ID3 avanzado)
+        # Descargamos la imagen de los servidores de Spotify en memoria
+        respuesta_portada = requests.get(metadatos['url_portada'])
+        if respuesta_portada.status_code == 200:
+            audio_imagen = ID3(ruta_mp3)
+            
+            # APIC es la etiqueta ID3 estándar para "Attached Picture" (Imagen adjunta)
+            audio_imagen.add(
+                APIC(
+                    encoding=3,          # 3 significa codificación UTF-8
+                    mime='image/jpeg',   # Las portadas de Spotify suelen ser JPEG
+                    type=3,              # 3 significa que es la portada frontal (Front Cover)
+                    desc='Front Cover',
+                    data=respuesta_portada.content # Los bytes de la imagen
+                )
+            )
+            audio_imagen.save()
+            print("🖼️  Carátula incrustada con éxito.")
+        else:
+            print("⚠️  No se pudo descargar la carátula de Spotify, el MP3 irá sin foto.")
+
+        print("✅ Etiquetas ID3 guardadas perfectamente.")
+        return True
+
+    except Exception as e:
+        print(f"❌ Error al inyectar los metadatos: {e}")
+        return False
+
 def main():
     print("=== INICIANDO SPOTIFY DOWNLOADER LOCAL ===")
     
-    url_objetivo = "https://open.spotify.com/intl-es/track/74t17BRV4el0mU0Tb8XY1k?si=aed609bf187241d6"
+    url_objetivo = "https://open.spotify.com/intl-es/track/6iWg7wVBXWwQYlVqp4UKPh?si=7766fef426154186"
     
     # Paso 1: Obtener la información de la canción
     metadatos = obtener_metadatos_spotify(url_objetivo)
@@ -98,16 +154,25 @@ def main():
         
     print(f"\n🎵 Canción: {metadatos['titulo']}")
     print(f"🎤 Artistas: {metadatos['artistas']}")
+    print(f"💿 Álbum: {metadatos['album']}")
     print(f"📅 Año: {metadatos['anio']}\n")
     
     # Paso 2: Descargar el audio basándonos en esos metadatos
     archivo_mp3 = descargar_audio_desde_youtube(metadatos['artistas'], metadatos['titulo'])
     
-    if archivo_mp3:
-        print(f"\n🚀 Proceso completado. Archivo listo: {archivo_mp3}")
-        # Aquí es donde en el futuro llamaremos al Hito 3: inyectar_metadatos(archivo_mp3, metadatos)
-    else:
+    if not archivo_mp3:
         print("\n❌ El proceso falló en la etapa de descarga.")
+        return
+
+    # Paso 3: Inyectar las etiquetas y la portada al archivo descargado
+    # Le pasamos la ruta del archivo generado y el diccionario de metadatos
+    exito_tags = inyectar_metadatos_mp3(archivo_mp3, metadatos)
+    
+    if exito_tags:
+        print(f"\n🚀 ¡PROCESO COMPLETADO CON ÉXITO!")
+        print(f"📂 Archivo final listo: {os.path.abspath(archivo_mp3)}")
+    else:
+        print("\n⚠️ El archivo se descargó pero hubo problemas con las etiquetas.")
 
 if __name__ == "__main__":
     main()
