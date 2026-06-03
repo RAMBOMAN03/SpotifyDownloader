@@ -139,6 +139,39 @@ def inyectar_metadatos_mp3(ruta_mp3, metadatos):
     except Exception as e:
         print(f"❌ Error al inyectar los metadatos: {e}")
         return False
+    
+def procesar_cancion(url_spotify):
+    # Paso 1: Obtener la información de la canción
+    metadatos = obtener_metadatos_spotify(url_spotify)
+    
+    if not metadatos:
+        print("❌ Saltando canción por error en metadatos.\n")
+        return
+        
+    print(f"\n🎶 Procesando: {metadatos['titulo']} - {metadatos['artistas']} ({metadatos['anio']})")
+    print(f"\n🎵 Canción: {metadatos['titulo']}")
+    print(f"🎤 Artistas: {metadatos['artistas']}")
+    print(f"💿 Álbum: {metadatos['album']}")
+    print(f"📅 Año: {metadatos['anio']}\n")
+    
+    # Paso 2: Descargar el audio basándonos en esos metadatos
+    archivo_mp3 = descargar_audio_desde_youtube(metadatos['artistas'], metadatos['titulo'])
+    
+    if not archivo_mp3:
+        print("\n❌ Saltando canción por error en la etapa de descarga.")
+        return
+
+    # Paso 3: Inyectar las etiquetas y la portada al archivo descargado
+    # Le pasamos la ruta del archivo generado y el diccionario de metadatos
+    exito_tags = inyectar_metadatos_mp3(archivo_mp3, metadatos)
+    
+    if exito_tags:
+        print(f"\n🚀 ¡PROCESO COMPLETADO CON ÉXITO!")
+        print(f"📂 Archivo final listo: {os.path.abspath(archivo_mp3)}")
+    else:
+        print("\n⚠️ El archivo se descargó pero hubo problemas con las etiquetas.")
+    
+    print("-" * 40)
 
 def main():
     print("=========================================")
@@ -147,46 +180,17 @@ def main():
     
     while True:
         print("Introduce la URL de Spotify (o escribe 'salir' para terminar):")
-        url_objetivo = input("🔗 URL: ").strip()
+        url_spotify = input("🔗 URL: ").strip()
         
-        if url_objetivo.lower() == 'salir':
+        if url_spotify.lower() == 'salir':
             print("\n👋 ¡Gracias por usar el descargador! Saliendo...")
             break
             
-        if not url_objetivo:
+        if not url_spotify:
             continue
-        
-        # Paso 1: Obtener la información de la canción
-        metadatos = obtener_metadatos_spotify(url_objetivo)
-        
-        if not metadatos:
-            print("❌ Saltando canción por error en metadatos.\n")
-            return
-            
-        print(f"\n🎶 Procesando: {metadatos['titulo']} - {metadatos['artistas']} ({metadatos['anio']})")
-        print(f"\n🎵 Canción: {metadatos['titulo']}")
-        print(f"🎤 Artistas: {metadatos['artistas']}")
-        print(f"💿 Álbum: {metadatos['album']}")
-        print(f"📅 Año: {metadatos['anio']}\n")
-        
-        # Paso 2: Descargar el audio basándonos en esos metadatos
-        archivo_mp3 = descargar_audio_desde_youtube(metadatos['artistas'], metadatos['titulo'])
-        
-        if not archivo_mp3:
-            print("\n❌ Saltando canción por error en la etapa de descarga.")
-            return
 
-        # Paso 3: Inyectar las etiquetas y la portada al archivo descargado
-        # Le pasamos la ruta del archivo generado y el diccionario de metadatos
-        exito_tags = inyectar_metadatos_mp3(archivo_mp3, metadatos)
+        procesar_cancion(url_spotify)
         
-        if exito_tags:
-            print(f"\n🚀 ¡PROCESO COMPLETADO CON ÉXITO!")
-            print(f"📂 Archivo final listo: {os.path.abspath(archivo_mp3)}")
-        else:
-            print("\n⚠️ El archivo se descargó pero hubo problemas con las etiquetas.")
         
-        print("-" * 40)
-
 if __name__ == "__main__":
     main()
