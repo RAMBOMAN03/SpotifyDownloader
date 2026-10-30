@@ -61,7 +61,7 @@ def descargar_audio_desde_youtube(artistas, titulo):
     Busca la canción en YouTube y descarga el audio convertido a MP3 a 320kbps.
     Devuelve el nombre del archivo generado si tiene éxito.
     """
-    termino_busqueda = f"ytsearch1:{artistas} - {titulo} audio"
+    termino_busqueda = f"ytsearch1:{artistas} - {titulo}"  #El termino de busqueda es ytmsearch, que busca en YT Music, sino funciona probar ytsearch, que busca en YT normal.
     nombre_archivo_salida = f"{titulo}.mp3"
     
     opciones_ytdl = {
@@ -72,8 +72,8 @@ def descargar_audio_desde_youtube(artistas, titulo):
             'preferredcodec': 'mp3',
             'preferredquality': '320',
         }],
-        'quiet': True,
-        'no_warnings': True,    # Para ocultar un error que aparece si no tienes instalado Node.js en tu ordenador.
+        'quiet': True,  # Para que no reporte cada cosa que haga a nivel interno.
+        'no_warnings': False,    # Para ver un error que aparece si no tienes instalado Node.js / Deno en tu ordenador o cualquier otro aviso.
     }
     
     try:
